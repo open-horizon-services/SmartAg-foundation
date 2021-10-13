@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# (c) Copyright 2021-present, SoftServe, Inc., All Rights Reserved.
+set -e
+source $(git rev-parse --show-toplevel)/workstation/setup.env
+
+export PATTERN_NAME="pattern-rpi4-fledge"
+export SERVICE_NAME="fledge"
+export SERVICE_VERSION=$(cat ../VERSION)
+export SERVICE_CONTAINER="192.168.1.36:5000/rpi4-fledge:$SERVICE_VERSION"
+export CONTAINER_CREDS=
+#"-r '192.168.1.36:user:password'"
+export ARCH="arm"
+
+echo "PATTERN_NAME: ${PATTERN_NAME}"
+echo "SERVICE_NAME: ${SERVICE_NAME}"
+echo "SERVICE_VERSION: ${SERVICE_VERSION}"
+echo "SERVICE_CONTAINER: ${SERVICE_CONTAINER}"
+echo "ARCH: ${ARCH}"
+echo
+
+docker push $SERVICE_CONTAINER
+
+hzn exchange service publish -O $CONTAINER_CREDS -f ./fledge_service/service.json --pull-image
+#-k ../../lanserver/docker_registry_certs/domain.key
+
+hzn exchange pattern publish -f ./rpi4_fledge_pattern.json

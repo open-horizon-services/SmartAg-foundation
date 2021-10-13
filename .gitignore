@@ -1,0 +1,21 @@
+# vi
+*.swp
+
+# MacOS Finder
+.DS_Store
+._*
+
+# IDE
+*.idea
+.vscode/
+
+# test
+.pytest_cache
+.coverage
+
+*/domain.crt
+*/domain.key
+notes.txt
+rpi4.txt
+server.txt
+*/setup.env

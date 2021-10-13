@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# (c) Copyright 2021-present, SoftServe, Inc., All Rights Reserved.
+set -e
+. $(git rev-parse --show-toplevel)/workstation/setup.env
+
+export PATTERN_NAME="pattern-rpi4-pki"
+export SERVICE_NAME="pki"
+export SERVICE_VERSION=$(cat ../VERSION)
+export SERVICE_CONTAINER="192.168.1.36:5000/rpi4-pki:$SERVICE_VERSION"
+export CONTAINER_CREDS=
+#"-r '192.168.1.36:user:password'"
+export ARCH="arm"
+
+echo "PATTERN_NAME: ${PATTERN_NAME}"
+echo "SERVICE_NAME: ${SERVICE_NAME}"
+echo "SERVICE_VERSION: ${SERVICE_VERSION}"
+echo "SERVICE_CONTAINER: ${SERVICE_CONTAINER}"
+echo "ARCH: ${ARCH}"
+echo
+
+docker push $SERVICE_CONTAINER
+
+hzn exchange service publish -O $CONTAINER_CREDS -f ./service.rpi4_pki.definition.json --pull-image
+#-k ../../lanserver/docker_registry_certs/domain.key
+
+hzn exchange deployment addpolicy -f deployment.policy.json $(HZN_ORG_ID)/policy-$(SERVICE_NAME)_$(SERVICE_VERSION)
+
+#hzn exchange pattern publish -f ./service.rpi4_pki.definition.json

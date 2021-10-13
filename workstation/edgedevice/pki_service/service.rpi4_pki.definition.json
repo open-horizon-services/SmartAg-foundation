@@ -1,0 +1,27 @@
+{
+  "org": "$HZN_ORG_ID",
+  "label": "$SERVICE_NAME for $ARCH",
+  "url": "$SERVICE_NAME",
+  "version": "$SERVICE_VERSION",
+  "arch": "$ARCH",
+  "description": "Preconfigured Access Keys for Raspberry Pi 4",
+  "documentation": "https://github.com/open-horizon-services/SmartAg-foundation/blob/main/README.md",
+  "public": true,
+  "sharable": "singleton",
+  "requiredServices": [],
+  "deployment": {
+    "services": {
+      "$SERVICE_NAME": {
+        "image": "$SERVICE_CONTAINER",
+        "devices": [
+          "/dev/gpiomem:/dev/gpiomem"
+        ],        
+        "ports": [ 
+          { "HostIP": "0.0.0.0", "HostPort": "8081:8081/tcp" },
+          { "HostIP": "0.0.0.0", "HostPort": "1995:1995/tcp" }
+	      ]
+      }
+    }
+  }
+}
+

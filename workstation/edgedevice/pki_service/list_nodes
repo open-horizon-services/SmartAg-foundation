@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# 
+# (c) Copyright 2021-present, SoftServe, Inc., All Rights Reserved.
+#
+set -e
+. $(git rev-parse --show-toplevel)/workstation/setup.env
+
+hzn exchange node list
