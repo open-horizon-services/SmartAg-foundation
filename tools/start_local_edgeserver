@@ -1,0 +1,267 @@
+#!/bin/bash
+#!/usr/bin/env bash
+# (c) Copyright 2021-present Oleksandr Ivanov, All Rights Reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Exit immediately on first pipeline (single or compound) command fails
+set -e
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} [-r -b -d -s]
+
+Parameters:
+    -r          Reset, reconfigure Edge Server and all Edge Nodes on LAN
+                Use this when your Edge Server IP has changed or when you want so start
+                from scratch.
+
+    -b          Distroy all cached and saved builds / docker images
+
+    -d          Distroy all deployed docker images from registry server
+
+    -s          Distroy all saved sensor data
+
+EOM
+    exit $exitCode
+}
+
+function run_sdk {
+  docker run \
+        --rm \
+        -v "/tmp/automationhub:/tmp/automationhub" \
+        -v "$PWD:$PWD" \
+        -w $PWD \
+        automationhub/smartag-sdk \
+        /bin/$@
+};
+
+function restore_volume {
+    docker run \
+        --rm \
+        -v $1:/out \
+        automationhub/smartag-sdk \
+        /bin/restore_volume $1
+};
+
+if [ ! -z "$1" ]; then
+    if [[ "$1" != "-c" ]]; then
+        echo "Uncnown parameter $1"
+        usage 1
+    fi
+    while true; do
+        read -p "WARNING: Start from scratch, reconfigure Edge Server and all Edge Nodes on LAN [y/N]" yn
+        case $yn in
+            [Yy]* ) break;;
+            [Nn]* ) exit;;
+            * ) echo "Aborted";exit 1;;
+        esac
+    done    
+    RECONFIGURE=1
+fi
+
+# Get this host IP
+# TODO: OS specific!
+export SMARTAG_EDGESERVER_IP=$(ifconfig | grep "inet " | grep -Fv 127.0.0.1 | awk '{print $2}')
+
+# Create registry keys
+mkdir -p ./registry/data ./registry/certs
+
+# Generate certs if directory is empty
+if [ -z "$(ls -A ./registry/certs)" ]; then
+    # Pass 1
+    netstat -nr | grep dc:a6:32 | cut -d' ' -f1 | while read IP; do
+        echo "Found board with $IP, connecting...";
+        cat ./edge_nodes | while read NODE_NAME; do
+            # Expecting node key in current directory
+            CONNECTED_NODE=$(ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "uname -n");
+            echo "Connected to Edge Node with name '$CONNECTED_NODE' at $IP";
+
+            echo "Generate registry certificates..."
+            # Generate registry certificates
+            # docker run \
+            #     --rm \
+            #     -v "$PWD:$PWD" \
+            #     -w $PWD \
+            #     automationhub/smartag-sdk \
+            #     /bin/generate_selfsigned_certs $SMARTAG_EDGESERVER_IP $IP ./registry/certs
+            run_sdk generate_selfsigned_certs $SMARTAG_EDGESERVER_IP $IP ./registry/certs            
+        done;
+    done;
+fi
+
+# Reboot docker daemon HERE!
+if [ ! -z "$RECONFIGURE" ]; then
+    ./stop_local_edgeserver
+fi
+
+echo "Checking/restoring volumes..."
+# !!! Temporary generated automatically, comment to save state of sensors data between reconfiguration
+# for VOLUME in tools_automationhub_loki tools_automationhub_influxdb tools_automationhub_grafana; do
+#     if [ ! -z "$RECONFIGURE" ]; then
+#         docker volume ls | grep $VOLUME &>/dev/null && docker volume rm $VOLUME
+#     fi
+# done;
+# From restore point
+for VOLUME in automationhub_mongo automationhub_postgres automationhub_ocsdb automationhub_msgkey automationhub_auth automationhub_horizon; do
+    # if ! docker volume rm $VOLUME; then 
+    #     INUSE=$(docker volume rm $VOLUME 2>&1 | awk -F'[][]' '{print $2}')
+    # fi
+    if [ ! -z "$RECONFIGURE" ]; then
+        docker volume ls | grep $VOLUME &>/dev/null && docker volume rm $VOLUME
+    fi
+
+    # TODO: it's test, remove below 
+    if ! docker volume ls | grep $VOLUME; then
+        docker volume create $VOLUME
+        echo "Restoring volume $VOLUME..."
+        # docker run \
+        #     --rm \
+        #     -v $VOLUME:/out \
+        #     automationhub/smartag-sdk \
+        #     /bin/restore_volume $VOLUME
+        restore_volume $VOLUME
+    fi
+done 
+
+# Create shared network
+if ! docker network ls | grep "automationhub_network"; then
+    docker network create automationhub_network
+fi
+
+if [ ! -f ./edge_nodes ]; then
+    echo "ERROR: Make sure write_bsp_image to create at least one Edge Node"
+    exit 1
+fi
+
+EDGE_SERVER_VARS=$(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
+eval $EDGE_SERVER_VARS
+
+# docker-compose file is saved to /tmp/automationhub/docker-compose.yml
+run_sdk gen_docker_compose
+
+# Before registering nodes we need to start EdgeServer
+# docker run \
+#     --rm \
+#     -v /var/run/docker.sock:/var/run/docker.sock \
+#     -v "/tmp/automationhub:/tmp/automationhub" \
+#     -v "$PWD:$PWD" \
+#     -w="$PWD" \
+#     docker/compose:1.28.0 -f /tmp/automationhub/docker-compose.yml up -d
+
+docker run \
+    --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v "/tmp/automationhub:/tmp/automationhub" \
+    -v "$PWD:$PWD" \
+    -w="$PWD" \
+    docker/compose:1.28.0 up -d
+
+echo "Wait for Edge Server is initialized..."
+run_sdk wait_edgeserver_ready
+
+echo "Purge all business deployments from Edge Server..."
+run_sdk purge_all_deployments
+
+echo "Purge all Edge Nodes registrations from Edge Server..."
+run_sdk purge_all_nodes
+
+echo "Looking for development boards in local network..."
+# RPi4 - "dc:a6:32" prefix
+
+# TODO: Add support for other boards
+netstat -nr | grep dc:a6:32 | cut -d' ' -f1 | while read IP; do
+    echo "Found board with $IP, connecting...";
+    cat ./edge_nodes | while read NODE_NAME; do
+        # Expecting node key in current directory
+        CONNECTED_NODE=$(ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "uname -n");
+        echo "Connected to Edge Node with name '$CONNECTED_NODE' at $IP";
+        
+        # Double check the name 
+        if ! cat ./edge_nodes | grep $CONNECTED_NODE >/dev/null; then
+            echo "ERROR: $CONNECTED_NODE is not present in ./edge_nodes. Make sure you created BSP image with './write_bsp_image'"
+            exit 1
+        fi
+
+        echo 
+        # TODO: consider re-run configuration on IP address changed or when force reconfig has been requested
+        if ! ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "[ -f /var/automationhub/configured ]"; then
+            echo "Configuring Edge Node '$NODE_NAME'..."
+            EDGE_NODE_VARS=$(run_sdk get_node_env $SMARTAG_EDGESERVER_IP)
+
+            cat | awk '{$1=$1;print}' >/tmp/horizon_default <<HZNDEFAULT
+                HZN_EXCHANGE_URL=http://$SMARTAG_EDGESERVER_IP:3090/v1
+                HZN_FSS_CSSURL=http://$SMARTAG_EDGESERVER_IP:9443/
+                HZN_NODE_ID=$NODE_NAME
+                HZN_AGENT_PORT=8510
+                HZN_AGBOT_URL=http://$SMARTAG_EDGESERVER_IP:3111
+                HZN_MGMT_HUB_CERT_PATH=
+HZNDEFAULT
+            cat | awk '{$1=$1;print}' >/tmp/node_docker_daemon <<NODEDOCKER
+{
+  "insecure-registries" : ["$SMARTAG_EDGESERVER_IP:5000"]
+}
+NODEDOCKER
+# echo "1"
+            scp -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key /tmp/node_docker_daemon pi@$IP:/tmp/daemon.json >/dev/null
+# echo "2"
+            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo cp /tmp/daemon.json /etc/docker/daemon.json" >/dev/null
+# echo "3"
+            scp -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key ./registry/certs/domain.crt pi@$IP:/tmp/ca.crt >/dev/null
+# echo "4"
+            ssh -i ./node_keys/$NODE_NAME.key pi@$IP "sudo mkdir -p /etc/docker/certs.d/$SMARTAG_EDGESERVER_IP:5000 && sudo cp /tmp/ca.crt /etc/docker/certs.d/$SMARTAG_EDGESERVER_IP:5000/ca.crt"
+# echo "5"
+            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo docker login -uadmin -ppassword $SMARTAG_EDGESERVER_IP:5000" &>/dev/null
+# echo "6"
+            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo systemctl restart docker" >/dev/null
+# echo "7"
+            scp -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key /tmp/horizon_default pi@$IP:/tmp/horizon_default >/dev/null
+# echo "8"
+            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo cp /tmp/horizon_default /etc/default/horizon" >/dev/null
+# echo "9"
+            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo $EDGE_NODE_VARS sh -c 'hzn unregister -rDf'" >/dev/null
+# echo "10"
+            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo $EDGE_NODE_VARS sh -c 'hzn register --policy /var/automationhub/edgenode_capabilities.json'" >/dev/null
+            echo "Edge Node '$NODE_NAME' is configured"
+            echo 
+        fi
+        
+        # Check if first time connected
+        #CONNECTED_NODE=$(ssh -i ./node_keys/$NODE_NAME.key pi@$IP "cat /var/uname -n");
+        # Re-register node with new name and capabilities
+        # Setup exchange IP i.e. SMARTAG_EDGESERVER_IP
+        # Setup variables
+    done;
+done;
+
+echo "All Edge Nodes are configured. Update should begin shortly after next deployment"
+
+if cat ./edge_server 2>/dev/null | grep "$SMARTAG_EDGESERVER_IP" >/dev/null; then
+    echo "Edge Server is now configured"
+    echo "$SMARTAG_EDGESERVER_IP" >./edge_server
+fi
+
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "!!!   Edge Server is now configured and running on LOCALHOST    !!!"
+echo
+echo "For the next steps... "
+echo "      run './create_stack' to create new stack from examples"
+echo "      run './build_and_deploy' when you ready deploy stack to EdgeNode"
+echo

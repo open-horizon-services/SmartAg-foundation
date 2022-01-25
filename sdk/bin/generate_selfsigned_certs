@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+set -e
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} edge_server_ip edge_node_ip save_directory
+
+Parameters:
+    edge_server_ip  Edge server IP address
+    edge_server_ip  Edge node IP address
+    save_directory  Save directory path
+
+EOM
+    exit $exitCode
+}
+
+if [ -z $1 ]; then
+    echo "ERROR: edge_server_ip is not specified"
+    usage 1
+fi
+export SMARTAG_EDGESERVER_IP=$1
+
+if [ -z $2 ]; then
+    echo "ERROR: edge_node_ip is not specified"
+    usage 1
+fi
+export SMARTAG_EDGENODE_IP=$2
+
+if [ -z $3 ]; then
+    echo "ERROR: save_directory is not specified"
+    usage 1
+fi
+OUT_DIR=$3
+
+# Update certificate.config with SMARTAG_EDGESERVER_IP and SMARTAG_EDGENODE_IP
+cat /var/automationhub/certificate_template | envsubst > /var/certificate.config
+
+# Generate certificates in volume
+openssl req -new -nodes -x509 -days 365 -keyout $OUT_DIR/domain.key -out $OUT_DIR/domain.crt -config /var/certificate.config
+
+# Verify certificate
+echo "verifying..."
+openssl x509 -in $OUT_DIR/domain.crt -noout -text | grep "IP Address:$SMARTAG_EDGESERVER_IP"
+
+# Copy newly generated files in directory which is mapped docker volume
+# mv domain.key $OUT_DIR
+# mv domain.crt $OUT_DIR

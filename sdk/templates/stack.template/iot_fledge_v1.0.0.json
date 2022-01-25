@@ -1,0 +1,13 @@
+{
+    "version": "0.0.1",
+    "schema": "https://automationhub.online/stack.schema",
+    "name": "iot_fledge",
+    "public": {
+        "services": [
+            "iot_fledge_v1.0.0"
+        ]
+    },
+    "private": {
+        "services": false
+    }
+}

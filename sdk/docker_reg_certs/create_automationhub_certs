@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#
+set -e
+
+rm -f domain.crt domain.key
+./generate_selfsigned_certs
+docker volume rm -f automationhub_certs
+docker volume create automationhub_certs
+docker run --rm -v automationhub_certs:/data -v $(pwd):/certs -w /certs busybox cp domain.crt domain.key /data

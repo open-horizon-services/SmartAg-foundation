@@ -1,5 +1,5 @@
 
-- Setup bulletproof data storage for S-Soil MTEC-02B on local Server (HP)
+- Setup bulletproof data storage for S-Soil MTEC-02B on Server in LAN
 
 Prerequisites:
 Hardware:

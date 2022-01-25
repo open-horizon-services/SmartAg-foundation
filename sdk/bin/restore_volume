@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} edge_server_ip
+
+Parameters:
+    volume  Volume name
+
+EOM
+    exit $exitCode
+}
+
+if [ ! -d /out ]; then
+    echo "ERROR: make sure /out was mounted to host"
+    exit 1
+fi
+
+if [ ! -f /var/automationhub/volumes/$1.tgz ]; then
+    echo "ERROR: volume data ($1) is not found"
+    exit 1
+fi
+
+# tar -xf /var/automationhub/volumes/$1.tgz --strip-components=2 -C /out
+tar x -zf /var/automationhub/volumes/$1.tgz --strip-components=1 -C /out

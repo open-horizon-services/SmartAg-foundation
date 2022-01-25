@@ -13,9 +13,12 @@
 .pytest_cache
 .coverage
 
+**/id_rsa*
+**/*.log
 */domain.crt
 */domain.key
 notes.txt
 rpi4.txt
 server.txt
 */setup.env
+*not_used_*

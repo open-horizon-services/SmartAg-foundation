@@ -1,0 +1,9 @@
+
+- name: Run install docker loki plugin to display containers logs via promtail in graphana.
+  command:
+    cmd:
+
+- name: Restart service docker, in all cases
+  service:
+    name: docker
+    state: restarted

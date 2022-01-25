@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# 
-# (c) Copyright 2021-present, SoftServe, Inc., All Rights Reserved.
-#
-set -e
-
-./build_image
-./deploy_service__rpi4-fledge

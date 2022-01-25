@@ -1,0 +1,21 @@
+{
+    "version": "1.0.0",
+    "schema": "https://automationhub.online/stack.schema",
+    "name": "iot_fledge",
+    "public": {
+        "services": [
+            {
+                "iot_fledge": "latest",
+                "dependencies": {
+                    "s-soil_mtec02b": "<1.0.0 || >=2.3.1 <2.4.5 || >=2.5.2 <3.0.0"
+                }
+            },
+            {
+                "name": "s-soil_mtec02b"
+            }
+        ]
+    },
+    "private": {
+        "services": false
+    }
+}

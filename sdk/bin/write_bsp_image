@@ -1,0 +1,147 @@
+#!/bin/sh
+# (c) Copyright 2021-present Oleksandr Ivanov, All Rights Reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Exit immediately on first pipeline (signle, compound) command fails
+set -e
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} node_name ssid passphrase
+
+Parameters:
+    node_name       Edge node name (i.e. example_edgenode)
+    ssid            SSID of network where edge node divice will be deployed
+    passphrase      Passphrase to connect to specified SSID after boot
+    timezone        Timezone to use on edge node
+    countrycode     ISO 3166 2 letter country code 
+
+EOM
+    exit $exitCode
+}
+
+if [ ! -f "./target_os.img" ]; then
+    echo "Template OS image (target_os.img) is not found, downloading..."
+    gdown --id 1XU6CGf75qRO67XCDFXVxRW2X4oJKPIX7
+fi
+
+if [ ! -d "/var/automationhub/edgenode" ]; then
+    echo "ERROR: template patch files (/var/automationhub/edgenode) for OS image is not found"
+    usage 1
+fi
+
+# Copy template edgenode into tmp
+cp -r /var/automationhub/edgenode /tmp/edgenode
+
+if [ -z "$1" ]; then
+    echo "ERROR: node_name is missing"
+    usage 1
+fi
+export SMARTAG_EDGENODE_HOST=$1
+
+if [ -z "$2" ]; then
+    echo "ERROR: ssid is missing"
+    usage 1
+fi
+export SMARTAG_SSID=$2
+
+if [ -z "$3" ]; then
+    echo "ERROR: passphrase is missing"
+    usage 1
+fi
+export PASSPHRASE=$3
+
+if [ -z "$4" ]; then
+    echo "ERROR: timezone is missing"
+    usage 1
+fi
+export SMARTAG_TIMEZONE=$4
+
+if [ -z "$5" ]; then
+    echo "ERROR: ISO 3166 2 letter country code is missing"
+    usage 1
+fi
+export SMARTAG_COUNTRY=$5
+
+# TODO: decrease initial file size to 10-15mb
+IMG=target_os.img
+SECTOR_SIZE=$(fdisk -l ./$IMG | grep 'Units:' | grep -o -E '\d+ bytes' | grep -o -E '\d+')
+STARTBLOCK=$(fdisk -l ./$IMG | grep "FAT32" | tr -s ' ' | cut -d' ' -f4)
+
+# Mount boot partition into /osimg and put 
+# - needed patch files
+# - generated ssh access keys
+# - firstrun.sh to apply patch and initial system configuration
+mkdir /osimg
+mount -o loop,rw,sync,offset=$(($SECTOR_SIZE*$STARTBLOCK)) ./$IMG /osimg
+
+# # Don't allow to patch the BSP image more than once
+if test -f /osimg/LICENCE.automationhub; then
+    echo "WARNING: The BSP image is already patched."
+fi
+
+export SMARTAG_PSK=$(python -c '\
+from hashlib import pbkdf2_hmac;import sys;\
+ssid="'$SMARTAG_SSID'".encode();\
+pwd="'$PASSPHRASE'".encode();\
+print(pbkdf2_hmac("sha1",pwd,ssid,iterations=4096,dklen=32).hex())')
+
+echo "VARS:"
+echo "  SMARTAG_EDGENODE_HOST: $SMARTAG_EDGENODE_HOST"
+echo "  SMARTAG_SSID: $SMARTAG_SSID"
+echo "  SMARTAG_PSK: $SMARTAG_PSK"
+echo "  SMARTAG_TIMEZONE: $SMARTAG_TIMEZONE"
+echo "  SMARTAG_COUNTRY: $SMARTAG_COUNTRY"
+echo
+
+rm -f ./edge_nodes
+# Save node names
+echo "$SMARTAG_EDGENODE_HOST" > ./edge_nodes
+# TODO: save all nodes (not just one)
+
+# Setup access keys to the board
+mkdir -p ./node_keys
+
+echo "Initialize SSH keys to access the Edge Node"
+# Initialize SSH keys
+ssh-keygen -t rsa -b 4096 -f ./node_keys/$SMARTAG_EDGENODE_HOST.key -q -N ""
+
+# Copy ssh public key to the board patch folder
+mkdir -p /tmp/edgenode/home/pi/.ssh
+cp ./node_keys/$SMARTAG_EDGENODE_HOST.key.pub /tmp/edgenode/home/pi/.ssh/id_rsa.pub
+cat ./node_keys/$SMARTAG_EDGENODE_HOST.key.pub >/tmp/edgenode/home/pi/.ssh/authorized_keys
+
+# Patch/overwrite all files with environment variables values
+find /tmp/edgenode/ -type f -exec sh -c "envsubst < {} | sponge {}" \;
+
+# Remove old archive if any
+rm -rf /osimg/ospatch.zip
+
+# Pack updated patch and save it into boot partition
+zip -r /osimg/ospatch.zip /tmp/edgenode/
+
+# Copy firstrun.sh script into boot partition
+cp /var/automationhub/firstrun.sh /osimg/firstrun.sh
+
+# Mark the patched image
+echo "(c) Copyright 2021-present Oleksandr Ivanov, All Rights Reserved." >/osimg/LICENCE.automationhub
+sync
+umount /osimg

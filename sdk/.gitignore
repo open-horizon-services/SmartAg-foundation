@@ -1,0 +1,16 @@
+# vi
+*.swp
+
+# MacOS Finder
+.DS_Store
+._*
+
+# IDE
+*.idea
+.vscode/
+
+# test
+.pytest_cache
+.coverage
+
+developer/

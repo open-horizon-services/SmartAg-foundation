@@ -1,0 +1,116 @@
+#!/bin/sh
+#!/usr/bin/env bash
+set -e
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+
+Usage: ${0##*/} <stack_name> [edge_node]
+
+Parameters:
+    stack_name      Stack directory to build
+    edge_node       Edge Node name where to deploy the stack
+
+EOM
+    exit $exitCode
+}
+
+if [ -z "$1" ]; then
+    echo "ERROR: Specify a stack or service directory to build and deploy"
+    usage 1    
+fi
+if [ ! -d "$1" ]; then
+    echo "ERROR: Stack directory ($1) is not found"
+    usage 1
+fi
+if [ ! -f "$1/VERSION" ]; then
+    echo "ERROR: Stack VERSION file ($1/VERSION) is not found"
+    usage 1
+fi
+if [ -z "$2" ]; then
+    echo "ERROR: Edge node name for deployment was not specified"
+    echo
+    echo "Looking for Edge Nodes registered on Edge Server..."
+
+    # TODO: change to sdk
+    docker run \
+            --rm \
+            -v "$PWD:$PWD" \
+            -w $PWD \
+            automationhub/smartag-sdk \
+            /bin/list_nodes | cut -d '/' -f2
+    usage 1
+fi
+export SMARTAG_EDGENODE_HOST=$2
+
+# Print current build version
+export STACK_NAME="$1"
+export STACK_VERSION=$(cat $STACK_NAME/VERSION)
+export SMARTAG_EDGESERVER_IP=$(ifconfig | grep "inet " | grep -Fv 127.0.0.1 | awk '{print $2}')
+export CONTAINER_CREDS=
+export ARCH="arm"
+
+echo "Using version '$STACK_VERSION' for '$STACK_NAME' stack"
+
+# Get Node variables
+DEPLOYMENT_VARS=$(docker run \
+    --rm \
+    --privileged \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    -v "$PWD:$PWD" \
+    -w $PWD \
+    automationhub/smartag-sdk \
+    /bin/get_deployment_env $SMARTAG_EDGESERVER_IP)
+# echo -e "DEPLOYMENT_VARS:\n$DEPLOYMENT_VARS"
+eval export $DEPLOYMENT_VARS
+
+# Check if EdgeServer registry is running
+if ! test $(curl -sS -w %{http_code} -k -o /dev/null \
+            --user admin:password https://$SMARTAG_EDGESERVER_IP:5000/v2/_catalog); then
+    echo "It seems local registry haven't started, make sure you run ./start_local_edge_server"
+    exit 1
+fi
+
+docker buildx ls | grep automationhub_builder >/dev/null \
+    || docker buildx create --name automationhub_builder
+
+# Build arm v7 image for RPi4
+docker buildx use automationhub_builder
+
+# echo "Checking/restoring volumes..."
+for SERVICE in $(cat $STACK_NAME/services); do
+    echo "$SERVICE: $SERVICE"
+
+    export SERVICE_NAME="$SERVICE"
+    export SERVICE_VERSION="$STACK_VERSION"
+    export SERVICE_CONTAINER="$SMARTAG_EDGESERVER_IP:5000/$SERVICE_NAME:$SERVICE_VERSION"
+    export SERVICE_TAG="$STACK_NAME-$SERVICE_NAME"
+
+    # Build service
+    (cd $STACK_NAME/$SERVICE_NAME \
+        && docker buildx build . \
+        -f Dockerfile.armv7l \
+        --platform linux/arm/v7 \
+        -t $SERVICE_TAG:$SERVICE_VERSION \
+        --load)
+
+    # Create a tag
+    docker tag $SERVICE_TAG:$SERVICE_VERSION $SERVICE_CONTAINER
+    docker push $SERVICE_CONTAINER
+
+    hzn exchange service publish \
+        -O $CONTAINER_CREDS -f $STACK_NAME/$SERVICE_NAME/*.definition.json --pull-image
+
+    # Create deployment policy for node updade
+    cat ./deployment_templates/deployment_policy_edge_node.json | envsubst > /tmp/deployment_policy_update.json
+
+    hzn exchange deployment addpolicy \
+        -f /tmp/deployment_policy_update.json $HZN_ORG_ID/policy-$SERVICE_TAG
+
+    # Ok all done - let's increment the stack version
+    MJ=$(cat $STACK_NAME/VERSION | cut -d '.' -f1)
+    MN=$(cat $STACK_NAME/VERSION | cut -d '.' -f2)
+    BN=$(cat $STACK_NAME/VERSION | cut -d '.' -f3)
+    echo "$MJ.$MN.$((BN+1))" >$STACK_NAME/VERSION
+done

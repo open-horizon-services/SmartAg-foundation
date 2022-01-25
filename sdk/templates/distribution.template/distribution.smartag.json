@@ -1,0 +1,19 @@
+{
+    "version": "0.0.1",
+    "schema": "https://automationhub.online/distribution.schema",
+    "name": "SmartAg_Flower_Farm",
+    "license": "MIT",
+    "bsp": "Ansible_OpenHorizon",
+    "sources": [
+        {
+            "url": "https://automationhub.online/sources",
+            "auth": false
+        }
+    ],
+    "os": {
+        "name": "raspios",
+        "version": "1.2.3",
+        "url": "https://automationhub.online/distro/1.0"
+    },
+    "stack": "iot_fledge_v1.0.0"
+}

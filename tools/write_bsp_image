@@ -1,0 +1,148 @@
+#!/bin/bash
+#!/usr/bin/env bash
+# (c) Copyright 2021-present Oleksandr Ivanov, All Rights Reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Exit immediately on first pipeline (single or compound) command fails
+set -e
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} <node_name> [timezone]
+
+Prerequisites:
+    (1) Run with sudo
+
+    (2) SD card must be inserted. 
+
+Parameters:
+    node_name     Edge node name (i.e. example-edge-node)
+    timezone      Your host timezone will be used or use specific (i.e. Europe/Kiev, etc.)
+
+EOM
+    exit $exitCode
+}
+
+if [ "$EUID" -ne 0 ]; then 
+    echo "ERROR: Prerequisite (1) has failed, permissions denied, please run this script as 'sudo'"
+    usage 1
+fi
+
+if [ -z "$1" ]; then
+    echo "ERROR: edge node name is missing"
+    usage 1
+fi
+
+if ! echo $1 | grep -E '^[-a-z0-9]+$'>/dev/null; then
+    echo "ERROR: edge node name must be compatible with ASCII(7) letters from a to z, the digits from 0 to 9, and the hyphen (-)"
+    usage 1
+fi
+NODE_NAME=$1
+
+if [ -z "$2" ]; then
+    # TODO: OS specific!
+    TIME_ZONE=$(sudo systemsetup -gettimezone | awk 'NF>1{print $NF}')
+    echo "Using current host timezone: $TIME_ZONE"
+else
+    TIME_ZONE=$2
+fi
+
+if [ -z "$3" ]; then
+    # TODO: OS specific!
+    # Set default
+    COUNTRY=US
+else
+    # TODO: check if code is correct (verify)
+    COUNTRY=$3
+fi
+# Install all required dependencies to proceed
+# TODO: OS specific!
+#brew bundle (bad idea under sudo)
+
+# TODO: OS specific!
+SSD_DEV=$(diskutil list | grep "(external, physical)" | sed -e 's/\(\/dev\/disk[0-9]\).*/\1/')
+if [ -z "$SSD_DEV" ]; then
+    echo -e "\nExternal disk (SD card) is not found. Make sure you inserted SD card."; 
+    usage 1
+fi
+
+# Get current wifi to suggest as a default one
+# TODO: OS specific!
+SSID_DEFAULT=$(/Sy*/L*/Priv*/Apple8*/V*/C*/R*/airport -I | awk '/ SSID:/ {print $2}')
+read -p "Enter SSID name, where edge node will be running [$SSID_DEFAULT]: " SSID
+SSID=${SSID:-$SSID_DEFAULT}
+
+while [[ $PASSPHRASE = "" ]]; do
+   read -s -p "Enter password for '$SSID' network: " PASSPHRASE
+   echo
+done
+
+if ((${#PASSPHRASE} < 8 || ${#PASSPHRASE} > 63)); then
+    echo "Passphrase must be 8..63 characters"
+    exit 1
+fi
+
+# BUGBUG: Device mapping with container is not supported in MacOS Docker 
+#(https://github.com/docker/for-mac/issues/3110#issuecomment-456853036)
+# So we cannot hide dd in MacOS, np - perform dd at the end
+# For Linux we could map target device and hide low level device access
+
+docker run \
+    --rm \
+    --privileged \
+    -v "$PWD:$PWD" \
+    -w $PWD \
+    -it automationhub/smartag-sdk \
+    /bin/write_bsp_image $NODE_NAME $SSID $PASSPHRASE $TIME_ZONE $COUNTRY
+
+echo "Disk $SSD_DEV will be used to write the OS image."
+echo $(diskutil info $SSD_DEV | grep "Disk Size:")
+echo
+while true; do
+    read -p "WARNING! Disk $SSD_DEV will be overwritten. Do you want to continue? [y/N] " yn
+    case $yn in
+        [Yy]* ) break;;
+        [Nn]* ) exit;;
+        * ) echo "Aborted";exit 1;;
+    esac
+done
+
+# TODO: OS specific!
+diskutil unmountDisk ${SSD_DEV//disk/rdisk}
+
+# Prevent from sleeping during dd
+# TODO: OS specific!
+# Get some caffeinate to not fall asleep while writing bytes on the disk
+caffeinate -u sudo dd if=$PWD/target_os.img | pv | sudo dd of=${SSD_DEV//disk/rdisk} bs=1m 
+
+# TODO: OS specific!
+diskutil eject $SSD_DEV
+
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "!!!            SD card with BSP image is created                !!!"
+echo
+#echo "Before applying power make sure you connected sensors to the RPi4 board and insert SD card."
+echo "Before applying the power insert SD card into RPi4, it will be available as Edge Node '$NODE_NAME'"
+echo
+echo "When the board is powered (wait for 3 minutes)"
+echo
+echo "For the next step run './start_local_edgeserver' to start Edge Server locally and to configure Edge Nodes"
+echo

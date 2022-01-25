@@ -1,0 +1,474 @@
+version: "3"
+volumes:
+  automationhub_mongo:
+    external: true
+  automationhub_ocsdb:
+    external: true
+  automationhub_postgres:
+    external: true
+  # automationhub_data:
+  #   external: true
+  automationhub_msgkey:
+    external: true
+  automationhub_horizon:
+    external: true
+  automationhub_auth:
+    external: true
+  # automationhub_certs:
+  #   external: true
+  # automationhub_registry:
+  #   driver: local
+  automationhub_influxdb:
+    driver: local
+  # automationhub_prometheus:
+  #   driver: local
+  automationhub_grafana:
+    driver: local
+  automationhub_loki:
+    driver: local
+    # external: true
+
+networks:
+  automationhub_network:
+    external: true
+
+services:
+  postgres:
+    command:
+      - postgres
+    container_name: postgres_dev
+    entrypoint:
+      - docker-entrypoint.sh
+    environment:
+      - POSTGRES_DB=exchange
+      - POSTGRES_USER=admin
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/13/bin
+      - GOSU_VERSION=1.12
+      - LANG=en_US.utf8
+      - PG_MAJOR=13
+      - PG_VERSION=13.4-1.pgdg100+1
+      - PGDATA=/var/lib/postgresql/data
+    expose:
+      - 5432/tcp
+    hostname: f10968b15719
+    image: postgres:13.5
+    ipc: private
+    logging:
+      driver: json-file
+      options: {}
+    networks:
+      - automationhub_network
+    restart: unless-stopped
+    volumes:
+      - automationhub_postgres:/var/lib/postgresql/data:rw
+      #- ./storage/automationhub_postgres:/var/lib/postgresql/data:rw
+
+  mongo:
+    command:
+      - mongod
+    container_name: mongo_dev
+    entrypoint:
+      - docker-entrypoint.sh
+    environment:
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - GOSU_VERSION=1.12
+      - JSYAML_VERSION=3.13.1
+      - MONGO_PACKAGE=mongodb-org
+      - MONGO_REPO=repo.mongodb.org
+      - MONGO_MAJOR=5.0
+      - MONGO_VERSION=5.0.2
+      - MONGO_PORT=27017
+    expose:
+      - 27017/tcp
+    hostname: eeb2dc3656b4
+    image: mongo:5.0
+    ipc: private
+    logging:
+      driver: json-file
+      options: {}
+    networks:
+      - automationhub_network
+    restart: unless-stopped
+    # healthcheck:
+    #   test: echo show dbs | mongo localhost:${MONGO_PORT}/test --quiet
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 3    
+    volumes:
+      - automationhub_mongo:/var/edge-sync-service/persist:rw
+      # - ./storage/automationhub_mongo:/var/edge-sync-service/persist:rw
+
+  exchange-api:
+    depends_on:
+      - postgres
+    command:
+      - ""
+    container_name: exchange-api_dev
+    entrypoint:
+      - /bin/sh
+      - -c
+      - /usr/bin/envsubst < /etc/horizon/exchange/exchange-api.tmpl > /etc/horizon/exchange/config.json && /opt/docker/bin/amd64_exchange-api
+    environment:
+      - EXCHANGE_ROOT_PW_BCRYPTED=eu87OeKZnZNQRaoZd7aL56wFZ3CtWU
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - container=oci
+      - JAVA_OPTS=
+      - ENVSUBST_CONFIG=
+      - HZN_TRANSPORT=http
+    hostname: 8ca1f22c740a
+    image: openhorizon/amd64_exchange-api:2.90.1
+    ipc: private
+    labels:
+      com.redhat.license_terms: "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI"
+      description: Containerized exchange-api
+      distribution-scope: public
+      io.k8s.description: 'The Universal Base Image Minimal is a stripped down image
+        that uses microdnf as a package manager. This base image is freely redistributable,
+        but Red Hat only supports Red Hat technologies through subscriptions for Red
+        Hat products. This image is maintained by Red Hat and updated regularly.'
+      io.k8s.display-name: Red Hat Universal Base Image 8 Minimal
+      io.openshift.expose-services: ""
+      io.openshift.tags: minimal rhel8
+      maintainer: 'Red Hat, Inc.'
+      summary: Open Horizon exchange-api image
+      url: "https://access.redhat.com/containers/#/registry.access.redhat.com/ubi8-minimal/images/8.4-208"
+      vcs-ref: 7256039d3c371a38cf13906dcf5688c19700c73b
+      vcs-type: git
+      vendor: Open Horizon
+    logging:
+      driver: json-file
+      options: {}
+    networks:
+      - automationhub_network
+    ports:
+      - 0.0.0.0:3090:8080/tcp
+    restart: unless-stopped
+    # healthcheck:
+    #   test: test $$(curl -sS -w %{http_code} -k -o /dev/null ${HZN_TRANSPORT}://localhost:8080/v1/admin/version) -eq 200
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 3
+    user: root
+    volumes:
+      - automationhub_horizon:/etc/horizon
+      # - ./storage/automationhub_horizon:/etc/horizon
+    working_dir: /opt/docker
+
+  css-api:
+    depends_on:
+      - exchange-api
+    command:
+      - /usr/edge-sync-service/bin/css_start.sh
+    container_name: css-api_dev
+    environment:
+      - HZN_EXCHANGE_URL=http://exchange-api:8080/v1
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - EXCHANGE_USER_ORG=myorg
+      - EXCHANGE_USER_ADMIN_PW=brTG3oiDgOfe8Pw0l7rQjnQhR626av
+      - HZN_TRANSPORT=http
+      - container=oci
+    hostname: 834b7685500e
+    image: openhorizon/amd64_cloud-sync-service:1.7.1-689
+    ipc: private
+    labels:
+      com.redhat.license_terms: "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI"
+      description: 'Provides the management hub side of the Model Management System,
+        which stores object models and provides APIs for admins and edge nodes to
+        access the object models.'
+      distribution-scope: public
+      io.k8s.description: 'The Universal Base Image Minimal is a stripped down image
+        that uses microdnf as a package manager. This base image is freely redistributable,
+        but Red Hat only supports Red Hat technologies through subscriptions for Red
+        Hat products. This image is maintained by Red Hat and updated regularly.'
+      io.k8s.display-name: Red Hat Universal Base Image 8 Minimal
+      maintainer: 'Red Hat, Inc.'
+      summary: Object model storage and APIs in the management hub.
+      url: "https://access.redhat.com/containers/#/registry.access.redhat.com/ubi8-minimal/images/8.0-213"
+      vcs-ref: cd4b5a1918e11cd510080cc6ee5496bc730f16cf
+      vcs-type: git
+      vendor: IBM
+      version: 1.6.1-13.202108201519.2cf765b
+    logging:
+      driver: json-file
+      options: {}
+    networks:
+      - automationhub_network
+    ports:
+      - 0.0.0.0:9443:8080/tcp
+    restart: unless-stopped
+    # healthcheck:
+    #   test: test $$(curl -sS -w %{http_code} -k -u ${EXCHANGE_USER_ORG}/admin:${EXCHANGE_USER_ADMIN_PW} -o /dev/null ${HZN_TRANSPORT}://localhost:8080/api/v1/health) -eq 200
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 3    
+    #user: cssuser
+    user: root
+    volumes:
+      - automationhub_horizon:/etc/edge-sync-service
+      # - ./storage/automationhub_horizon:/etc/edge-sync-service
+
+  sdo-owner-services:
+    depends_on:
+      - exchange-api  
+    command:
+      - /bin/sh
+      - -c 
+      - /home/sdouser/start-sdo-owner-services.sh
+    container_name: sdo-owner-services_dev
+    environment:
+      - HZN_EXCHANGE_URL=http://0.0.0.0:3090/v1
+      - EXCHANGE_INTERNAL_URL=http://exchange-api:8080/v1
+      - EXCHANGE_INTERNAL_RETRIES=12
+      - EXCHANGE_INTERNAL_INTERVAL=5
+      - HZN_FSS_CSSURL=http://0.0.0.0:9443/
+      - HZN_ORG_ID=myorg
+      - SDO_OWNER_SVC_HOST=0.0.0.0
+      - SDO_OCS_API_PORT=9008
+      - SDO_RV_PORT=8040
+      - SDO_OPS_PORT=8042
+      - SDO_OPS_EXTERNAL_PORT=8042
+      - SDO_OCS_DB_PATH=/home/sdouser/ocs/config/db
+      - SDO_GET_PKGS_FROM=https://github.com/open-horizon/anax/releases/latest/download
+      - SDO_API_CERT_BASE_NAME=horizonMgmtHub
+      - HZN_MGMT_HUB_CERT=
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - container=oci
+      - WORKDIR=/home/sdouser
+      - VERBOSE=true
+      - SDO_OCS_API_TLS_PORT=9008
+    hostname: a7465e7e3ba5
+    image: openhorizon/sdo-owner-services:1.11.9-411
+    ipc: private
+    labels:
+      com.redhat.license_terms: "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI"
+      description: The SDO owner services run in the context of the open-horizon management
+        hub
+      distribution-scope: public
+      io.k8s.description: 'The Universal Base Image Minimal is a stripped down image
+        that uses microdnf as a package manager. This base image is freely redistributable,
+        but Red Hat only supports Red Hat technologies through subscriptions for Red
+        Hat products. This image is maintained by Red Hat and updated regularly.'
+      io.k8s.display-name: Red Hat Universal Base Image 8 Minimal
+      io.openshift.expose-services: ""
+      io.openshift.tags: minimal rhel8
+      maintainer: 'Red Hat, Inc.'
+      name: sdo-owner-services
+      summary: Open Horizon SDO support image
+      url: "https://access.redhat.com/containers/#/registry.access.redhat.com/ubi8-minimal/images/8.0-213"
+      vcs-ref: cd4b5a1918e11cd510080cc6ee5496bc730f16cf
+      vcs-type: git
+      vendor: IBM
+    logging:
+      driver: json-file
+      options: {}
+    networks:
+      - automationhub_network
+    ports:
+      - 0.0.0.0:8040:8040/tcp
+      - 0.0.0.0:8042:8042/tcp
+      - 0.0.0.0:9008:9008/tcp
+    restart: unless-stopped
+    # healthcheck:
+    #   test: test $$(curl -sS -w %{http_code} -o /dev/null -X POST http://localhost:${SDO_RV_PORT}/mp/113/msg/20) -eq 200
+    #   interval: 15s
+    #   timeout: 5s
+    #   retries: 3    
+    user: sdouser
+    volumes:
+      - automationhub_ocsdb:/home/sdouser/ocs/config/db:rw
+      # - ./storage/automationhub_ocsdb:/home/sdouser/ocs/config/db:rw
+
+    working_dir: /home/sdouser
+
+  agbot:
+    depends_on:
+      - exchange-api
+      - css-api
+      - postgres
+    container_name: agbot_dev
+    entrypoint:
+      - /bin/sh
+      - -c
+      - /usr/horizon/bin/agbot_start.sh
+    environment:
+      - ANAX_LOG_LEVEL=3
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - container=oci
+    hostname: e9f2935ea7f8
+    image: openhorizon/amd64_agbot:2.29.0-558
+    ipc: private
+    labels:
+      authoritative-source-url: registry.access.redhat.com
+      com.redhat.license_terms: "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI"
+      description: The Agbot scans all the edge nodes in the system initiating deployment
+        of services and model to all eligible nodes.
+      distribution-scope: public
+      io.k8s.description: 'The Universal Base Image Minimal is a stripped down image
+        that uses microdnf as a package manager. This base image is freely redistributable,
+        but Red Hat only supports Red Hat technologies through subscriptions for Red
+        Hat products. This image is maintained by Red Hat and updated regularly.'
+      io.k8s.display-name: Red Hat Universal Base Image 8 Minimal
+      io.openshift.expose-services: ""
+      io.openshift.tags: minimal rhel8
+      maintainer: 'Red Hat, Inc.'
+      name: amd64_agbot
+      release: 40bb7c13
+      summary: The deployment engine.
+      url: "https://access.redhat.com/containers/#/registry.access.redhat.com/ubi8-minimal/images/8.0-213"
+      vcs-ref: cd4b5a1918e11cd510080cc6ee5496bc730f16cf
+      vcs-type: git
+      vendor: IBM
+      version: 2.29.0-558.202108201453.40bb7c13
+    logging:
+      driver: json-file
+      options: {}
+    networks:
+      - automationhub_network
+    ports:
+      - 127.0.0.1:3110:8080/tcp
+      - 0.0.0.0:3111:8083/tcp
+    restart: unless-stopped
+    # healthcheck:
+    #   # Need to wait a while for this, because the deployment script does not add the org, user, agbot until after the containers are up
+    #   test: test $$(curl -sS -w %{http_code} -o /dev/null http://localhost:8080/status) -eq 200
+    #   interval: 20s
+    #   timeout: 5s
+    #   retries: 4    
+    user: root
+    #user: agbotuser
+    volumes:
+      - automationhub_horizon:/etc/horizon
+      - automationhub_msgkey:/var/horizon/msgKey
+    working_dir: /home/agbotuser
+
+  registry:
+    depends_on:
+      - agbot  
+    command:
+      - /etc/docker/registry/config.yml
+    container_name: registry_dev
+    entrypoint:
+      - /entrypoint.sh
+    environment:
+      - REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt
+      - REGISTRY_HTTP_TLS_KEY=/certs/domain.key
+      - REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm
+      - REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd
+      - REGISTRY_AUTH=htpasswd
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    hostname: d3dad5ab94ed
+    image: registry:2.7.0
+    ipc: private
+    logging:
+      driver: json-file
+      options: {}
+    mac_address: 02:42:ac:11:00:03
+    ports:
+      - 5000:5000/tcp
+    networks:
+      - automationhub_network
+    restart: unless-stopped
+    # healthcheck:
+    #   # Need to wait a while for this, because the deployment script does not add the org, user, agbot until after the containers are up
+    #   test: test $$(curl -sS -w %{http_code} -o /dev/null --cacert ${REGISTRY_HTTP_TLS_CERTIFICATE} https://localhost:5000/v2/_catalog) -eq 200
+    #   interval: 20s
+    #   timeout: 5s
+    #   retries: 4  
+      
+    volumes:
+      - automationhub_auth:/auth
+      - ./registry/certs:/certs
+      - ./registry/data:/var/lib/registry    
+      # - automationhub_certs:/certs
+      # # - ./storage/automationhub_certs:/certs
+      # - automationhub_auth:/auth
+      # # - ./storage/automationhub_auth:/auth
+      # - automationhub_registry:/var/lib/registry
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus_dev
+  #   ports:
+  #     - 127.0.0.1:9090:9090
+  #   volumes:
+  #     - ${PWD}/prometheus.yml:/etc/prometheus.yml
+  #     - automationhub_prometheus:/prometheus
+  #   networks:
+  #     - automationhub_network
+  #   restart: unless-stopped
+  #   command:
+  #     - "--config.file=/etc/prometheus.yml"
+  # fledge-gui:
+  #   container_name: fledge-gui_dev
+  #   image: robraesemann/fledge-gui:latest
+  #   ports:
+  #     - "8080:80"
+  #   restart: unless-stopped
+  #   networks:
+  #     - automationhub_network
+  grafana:
+    image: grafana/grafana-oss:8.3.4
+    container_name: grafana_dev
+    depends_on:
+      - influxdb
+      - loki
+    ports:
+      - 3000:3000/tcp
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
+    volumes:
+      - automationhub_grafana:/var/lib/grafana
+    networks:
+      - automationhub_network
+    restart: unless-stopped
+
+  influxdb:
+    image: influxdb:1.8
+    container_name: influxdb_dev
+    labels:
+      - docker.group=edgeserver    
+    ports:
+      - 8086:8086
+    volumes:
+      # - automationhub_influxdb:/var/lib/influxdb
+      - automationhub_influxdb:/var/lib/influxdb:rw
+    networks:
+      - automationhub_network      
+    restart: unless-stopped
+    # environment:
+    #   - INFLUXDB_DB=telegraf
+    #   - INFLUXDB_ADMIN_ENABLED=true
+    #   - INFLUXDB_ADMIN_USER=telegraf
+    #   - INFLUXDB_ADMIN_PASSWORD=automationhub
+
+  loki:
+    image: grafana/loki:2.4.0
+    container_name: loki_dev
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+    ports:
+      - 3100:3100/tcp
+    volumes:
+      - ./edge_server_config/loki:/etc/loki
+    networks:
+      - automationhub_network
+    restart: unless-stopped
+
+  # telegraf:
+  #   image: telegraf
+  #   container_name: telegraf_dev
+  #   restart: unless-stopped
+  #   labels:
+  #     - docker.group=edgeserver
+  #   environment:
+  #     - HOST_ETC=/hostfs/etc
+  #     - HOST_PROC=/hostfs/proc
+  #     - HOST_SYS=/hostfs/sys
+  #     - HOST_VAR=/hostfs/var
+  #     - HOST_RUN=/hostfs/run
+  #     - HOST_MOUNT_PREFIX=/hostfs
+  #   volumes:
+  #    - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+  #    - /:/hostfs:ro
+  #    - /var/run/docker.sock:/var/run/docker.sock:ro      

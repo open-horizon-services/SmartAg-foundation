@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+# This script is executed inside container
+echo "-= PARAMS..."
+echo $@
+echo "=-"
+
+export SMARTAG_EDGESERVER_IP=$1
+
+# Initialize open horizon variables
+cat /var/automationhub/env_template | envsubst >/var/automationhub/env
+. /var/automationhub/env
+
+docker run \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    -v "$PWD:$PWD" \
+    --rm -it docker/compose:latest -f /var/automationhub/docker-compose.yml down
+
+#    -w="$PWD" \

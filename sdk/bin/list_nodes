@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+set -e
+eval export $(get_deployment_env host.docker.internal)
+
+#echo "Available nodes in $HZN_ORG_ID organization id:"
+hzn exchange node list | jq -r '.[]'

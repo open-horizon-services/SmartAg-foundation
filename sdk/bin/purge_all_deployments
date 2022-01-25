@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+# usage() {
+#     exitCode=${1:-0}
+#     cat << EOM
+# Usage: ${0##*/} edge_server_ip
+
+# Parameters:
+#     edge_server_ip  Edge server IP address
+
+# EOM
+#     exit $exitCode
+# }
+
+# if [ -z $1 ]; then
+#     echo "ERROR: edge_server_ip is not specified"
+#     usage 1
+# fi
+# export SMARTAG_EDGESERVER_IP=$1
+
+eval export $(get_deployment_env host.docker.internal)
+
+hzn exchange deployment ls | jq -r '.[]' | sort -Vr | while read POLICY; do
+    hzn exchange deployment removepolicy $POLICY -f &>/dev/null
+done;

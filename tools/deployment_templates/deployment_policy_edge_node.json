@@ -1,0 +1,25 @@
+{
+  "properties": [ ],
+  "constraints": [ 
+    "edge_node == \"$SMARTAG_EDGENODE_HOST\""
+  ],
+  "service": {
+    "org": "$HZN_ORG_ID",
+    "name": "$SERVICE_NAME",
+    "arch": "*",
+    "serviceVersions": [ { "version": "$SERVICE_VERSION", "priority": {} } ]    
+  },
+  "userInput": [
+    {
+      "serviceOrgid": "$HZN_ORG_ID",
+      "serviceUrl": "$SERVICE_NAME",
+      "serviceVersionRange": "[1.0.INFINITY)",
+      "inputs": [
+        {
+          "name": "HW_ID", "value": "hw.zone1"
+        }
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,109 @@
+#!/bin/sh
+set -e
+
+function backup_volume {
+    docker run --rm -v $1:/data -v $(pwd):/backup busybox tar cvf /backup/$1.tar data
+}
+
+function restore_volume {
+    docker volume rm -f $1;
+    docker volume create $1;
+    if [ -f /var/automationhub/initial_volumes/$1.tar ]; then
+        docker run --rm -v $1:/data -v /var/automationhub/initial_volumes:/backup busybox tar xf /backup/$1.tar --strip-components=1
+    fi
+};
+
+# This script is executed inside container
+# echo "-= PARAMS..."
+# echo $@
+# echo "=-"
+export SMARTAG_EDGESERVER_IP=$(ifconfig | grep "inet " | grep -Fv 127.0.0.1 | awk '{print $2}')
+
+# Initialize open horizon variables
+# cat ./.env_template | envsubst
+# cat ./env_template | envsubst > ./env
+# . ./env
+
+# if [ ! -d ./storage/automationhub_mongo ]; then
+#     mkdir -p ./storage/automationhub_mongo
+# fi
+# if [ ! -d ./storage/automationhub_ocsdb ]; then
+#     mkdir -p ./storage/automationhub_ocsdb
+# fi
+# if [ ! -d ./storage/automationhub_postgres ]; then
+#     mkdir -p ./storage/automationhub_postgres
+# fi
+# if [ ! -d ./storage/automationhub_msgkey ]; then
+#     mkdir -p ./storage/automationhub_msgkey
+# fi
+# if [ ! -d ./storage/automationhub_auth ]; then
+#     mkdir -p ./storage/automationhub_auth
+# fi
+# if [ ! -d ./storage/automationhub_certs ]; then
+#     mkdir -p ./storage/automationhub_certs
+# fi
+# if [ ! -d ./storage/automationhub_loki ]; then
+#     mkdir -p ./storage/automationhub_loki
+# fi
+
+if ! docker volume ls | grep "automationhub_horizon"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_horizon
+fi
+if ! docker volume ls | grep "automationhub_data"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_data
+fi
+if ! docker volume ls | grep "automationhub_mongo"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_mongo
+fi
+if ! docker volume ls | grep "automationhub_ocsdb"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_ocsdb
+fi
+if ! docker volume ls | grep "automationhub_postgres"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_postgres
+fi
+if ! docker volume ls | grep "automationhub_msgkey"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_msgkey
+fi
+if ! docker volume ls | grep "automationhub_auth"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_auth
+fi
+if ! docker volume ls | grep "automationhub_certs"; then
+    echo "automationhub_horizon volume not found. Restoring..."
+    restore_volume automationhub_certs
+fi
+if ! docker volume ls | grep "automationhub_loki"; then
+    restore_volume automationhub_loki
+fi
+
+# Create shared network
+if ! docker network ls | grep "automationhub_network"; then
+    docker network create automationhub_network
+fi
+
+
+
+# Check if Docker is installed
+
+# Check if run first time?
+#   yes: find nodes on the network
+
+# Generate registry keys
+# ?Copy client key to raspberry board
+
+# Copy OH agent variables to the board
+# Restart agent remotely
+
+# Unpack volumes into /tmp/smartag
+
+# Import volumes into Docker
+
+# Start docker compose which uses volumes
+
+#ssh -i <private_key> pi@<IP>

@@ -1,0 +1,50 @@
+#!/bin/sh
+#!/usr/bin/env bash
+set -e
+
+BY='\033[1;33m'
+IW='\033[1;37m'
+NC='\033[0m'
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} <stack_name>
+
+Parameters:
+    stack_name      Stack name
+                    Stack name directory will be created with all sources needed to deploy the stack into Edge Node.
+
+EOM
+    exit $exitCode
+}
+
+if [ -z "$1" ]; then
+    # No parameters specified, list available stacks to start from
+    # xargs echo -ne | cat <<STACKS
+    printf "
+Available stacks to create:
+
++   ${BY}ssoil-mtec-02b-single${NC}   Stack to support Seeed S-Soil MTEC-02B
+
+    This stack includes open source telegraf service and custom python plugin to read sensor data from 
+    /dev/USBx connected to USB<->RS485 converter connected to S-Soil MTEC-02B sensor.
+    All sensor data are published into open source InfluxDB and displayed on open source Grafana dashboard.
+    Check documentation - https://wiki.lfedge.org/display/OH/Milestone+3%3A+Automation+hub+ecosystem
+
+    To use it, create stack, insert sensor into USB on RPi4 and deploy stack with ./build_and_deploy!
+
++   ${BY}YOUR_STACK_HERE${NC}         Visit https://github.com/open-horizon-services/SmartAg-foundation 
+                            and check how to contribute!
+
+    ${IW}Try it, it's free and open source!${NC}
+
+"
+fi
+
+docker run \
+    --rm \
+    -v "$PWD:$PWD" \
+    -w $PWD \
+    automationhub/smartag-sdk \
+    /bin/$(basename $0) $1

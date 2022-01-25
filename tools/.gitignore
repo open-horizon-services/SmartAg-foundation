@@ -1,0 +1,5 @@
+edge_node
+edge_server
+node_keys/
+registry/
+*.img

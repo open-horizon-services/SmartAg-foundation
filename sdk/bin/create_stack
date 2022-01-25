@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} <stack_name>
+
+Parameters:
+    stack_name      Stack name
+                    Stack name directory will be created with all sources needed to deploy the stack into Edge Node.
+
+EOM
+    exit $exitCode
+}
+
+if [ -z "$1" ]; then
+    echo "ERROR: specify stack name"
+    usage 1
+fi
+
+if [ ! -d "/var/automationhub/stacks/$1" ]; then
+    echo -e "ERROR: Stack $1 does not exist. Available stacks: \n\n$(ls -1 /var/automationhub/stacks)\n\n"
+    usage 1
+fi
+
+if [ -d "$PWD/$1" ]; then
+    echo -e "ERROR: directory ($PWD/$1) exist, rename it or remove before continue"
+    usage 1
+fi
+
+cp -R /var/automationhub/stacks/$1 $PWD/$1
+echo -e "Stack created at $PWD/$1\n"

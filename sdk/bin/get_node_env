@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+usage() {
+    exitCode=${1:-0}
+    cat << EOM
+Usage: ${0##*/} edge_server_ip
+
+Parameters:
+    edge_server_ip  Edge server IP address
+
+EOM
+    exit $exitCode
+}
+
+if [ -z $1 ]; then
+    echo "ERROR: edge_server_ip is not specified"
+    usage 1
+fi
+
+export SMARTAG_EDGESERVER_IP=$1
+
+OUT=$(\
+    cat /var/automationhub/.env_node | envsubst   `# Expand variables with runtime values` \
+    | sed -r '/^\s*$/d'                         `# Remove empty lines` \
+    | tr '\n' ' '                               `# Join lines with ;` \
+)
+
+OUT=$(echo "$OUT HZN_EXCHANGE_URL=http://$SMARTAG_EDGESERVER_IP:3090/v1 HZN_FSS_CSSURL=http://$SMARTAG_EDGESERVER_IP:9443/")
+
+# Remove any extra repeated ';'
+# OUT=$(echo "$OUT" | tr -s ';')
+
+echo $OUT

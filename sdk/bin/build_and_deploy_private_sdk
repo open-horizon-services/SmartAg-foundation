@@ -1,0 +1,37 @@
+#!/bin/sh
+
+# Private SDK should not be published online, but saved in private registry
+# (GCP, AWS, Azure, etc.)
+
+# Generate exchnage keys and export variables
+
+## Edge Server variables
+# export EXCHANGE_USER_ORG=...
+# export EXCHANGE_USER_ADMIN_PW=...
+# export EXCHANGE_ROOT_PW_BCRYPTED=...
+
+## Edge Node variables
+# export HZN_ORG_ID=...
+# export HZN_EXCHANGE_USER_AUTH=...
+# export EXCHANGE_ROOT_PW=...
+# export EXCHANGE_HUB_ADMIN_PW=...
+# export EXCHANGE_SYSTEM_ADMIN_PW=...
+# export AGBOT_TOKEN=...
+# export EXCHANGE_USER_ADMIN_PW=...
+# export HZN_DEVICE_TOKEN=...
+
+docker build \
+    --build-arg EXCHANGE_USER_ORG=${EXCHANGE_USER_ORG} \
+    --build-arg EXCHANGE_USER_ADMIN_PW=${EXCHANGE_USER_ADMIN_PW} \
+    --build-arg EXCHANGE_ROOT_PW_BCRYPTED=${EXCHANGE_ROOT_PW_BCRYPTED} \
+    --build-arg EXCHANGE_ROOT_PW=${EXCHANGE_ROOT_PW} \
+    --build-arg HZN_ORG_ID=${HZN_ORG_ID} \
+    --build-arg HZN_EXCHANGE_USER_AUTH=${HZN_EXCHANGE_USER_AUTH} \
+    --build-arg EXCHANGE_ROOT_PW=${EXCHANGE_ROOT_PW} \
+    --build-arg EXCHANGE_HUB_ADMIN_PW=${EXCHANGE_HUB_ADMIN_PW} \
+    --build-arg EXCHANGE_SYSTEM_ADMIN_PW=${EXCHANGE_SYSTEM_ADMIN_PW} \
+    --build-arg AGBOT_TOKEN=${AGBOT_TOKEN} \
+    --build-arg EXCHANGE_USER_ADMIN_PW=${EXCHANGE_USER_ADMIN_PW} \
+    --build-arg HZN_DEVICE_TOKEN=${HZN_DEVICE_TOKEN} \
+    -t $SDK_NAME \
+    .

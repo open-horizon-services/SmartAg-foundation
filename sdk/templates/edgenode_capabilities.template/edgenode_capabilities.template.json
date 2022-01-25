@@ -1,0 +1,33 @@
+{
+  "properties": [
+    {
+      "name": "zone_id",
+      "value": "zone1"
+    },
+    {
+      "name": "env",
+      "value": "testlab"
+    },
+    {
+      "name": "ram_gb",
+      "value": 4
+    },
+    {
+      "name": "headless",
+      "value": true
+    },
+    {
+      "name": "disk_storage_gb",
+      "value": 32
+    },
+    {
+      "name": "board_name",
+      "value": "raspberry_pi4_b"
+    },
+    {
+      "name": "sensor_1",
+      "value": "S-Temp&VWC&EC-02B"
+    }
+  ],
+  "constraints": []
+}

@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# This script is executed inside container
+# echo "-= PARAMS..."
+# echo $@
+# echo "=-"
+
+if [ -z $1 ]; then
+    SDK_NAME="automationhub/smartag-sdk"
+fi
+# Check parameters (only service)
+
+# Build service as Docker image
+
+# Publish policy
+
+# TODO: use secret feature to run a secure image build --secret id=yoursecret,src=/host/secret/file/path
+docker build \
+    -t $SDK_NAME \
+    .
+#docker push automationhub/smartag-sdk:latest
