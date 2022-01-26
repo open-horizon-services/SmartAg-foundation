@@ -12,11 +12,12 @@ volumes:
     external: true
   automationhub_auth:
     external: true
-  automationhub_influxdb:
+  # Below will be prepended with automationhub on start
+  influxdb:
     driver: local
-  automationhub_grafana:
+  grafana:
     driver: local
-  automationhub_loki:
+  loki:
     driver: local
 
 networks:
@@ -94,7 +95,6 @@ services:
       - -c
       - /usr/bin/envsubst < /etc/horizon/exchange/exchange-api.tmpl > /etc/horizon/exchange/config.json && /opt/docker/bin/amd64_exchange-api
     environment:
-      - EXCHANGE_ROOT_PW_BCRYPTED=eu87OeKZnZNQRaoZd7aL56wFZ3CtWU
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - container=oci
       - JAVA_OPTS=
@@ -135,8 +135,6 @@ services:
     environment:
       - HZN_EXCHANGE_URL=http://exchange-api:8080/v1
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      - EXCHANGE_USER_ORG=myorg
-      - EXCHANGE_USER_ADMIN_PW=brTG3oiDgOfe8Pw0l7rQjnQhR626av
       - HZN_TRANSPORT=http
       - container=oci
     hostname: 834b7685500e
@@ -294,7 +292,6 @@ services:
     logging:
       driver: json-file
       options: {}
-    mac_address: 02:42:ac:11:00:03
     ports:
       - 5000:5000/tcp
     networks:
@@ -302,8 +299,8 @@ services:
     restart: unless-stopped
     volumes:
       - automationhub_auth:/auth
-      - ./registry/certs:/certs
-      - ./registry/data:/var/lib/registry    
+      - ${PWD}/registry/certs:/certs
+      - ${PWD}/registry/data:/var/lib/registry    
 
   grafana:
     image: grafana/grafana-oss:8.3.4
@@ -316,7 +313,7 @@ services:
     environment:
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
     volumes:
-      - automationhub_grafana:/var/lib/grafana
+      - grafana:/var/lib/grafana
     networks:
       - automationhub_network
     restart: unless-stopped
@@ -329,7 +326,7 @@ services:
     ports:
       - 8086:8086
     volumes:
-      - automationhub_influxdb:/var/lib/influxdb:rw
+      - influxdb:/var/lib/influxdb:rw
     networks:
       - automationhub_network      
     restart: unless-stopped
@@ -342,8 +339,9 @@ services:
     ports:
       - 3100:3100/tcp
     volumes:
-      - ./edge_server_config/loki:/etc/loki
+      - ${PWD}/edge_server_config/loki:/etc/loki
     networks:
       - automationhub_network
     restart: unless-stopped
 
+  # Add your services below to be started with Edge Server

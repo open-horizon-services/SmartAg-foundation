@@ -1,0 +1,42 @@
+{
+  "properties": [],
+  "constraints": [
+    "location == \"Netherlands\""
+  ],
+  "service": {
+    "org": "$HZN_ORG_ID",
+    "name": "$SERVICE_NAME",
+    "arch": "*",
+    "serviceVersions": [
+      { 
+        "version": "$SERVICE_VERSION", 
+        "priority": {
+          "priority_value": 1,
+          "retries": 3,
+          "retry_durations": 120
+        } 
+      },
+      {
+        "version": "1.0.0",
+        "priority": {
+          "priority_value": 2,
+          "retries": 1,
+          "retry_durations": 120
+        }
+      }
+    ]
+  },
+  "userInput": [
+    {
+      "serviceOrgid": "$HZN_ORG_ID",
+      "serviceUrl": "$SERVICE_NAME",
+      "serviceVersionRange": "[1.0.INFINITY)",
+      "inputs": [
+        {
+          "name": "ENVIRONMET",
+          "value": "PRODUCTION"
+        }
+      ]
+    }
+  ]
+}

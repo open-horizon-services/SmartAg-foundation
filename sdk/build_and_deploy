@@ -1,11 +1,6 @@
 #!/bin/sh
-
-# This script is executed inside container
-# echo "-= PARAMS..."
-# echo $@
-# echo "=-"
-
-if [ -z $1 ]; then
+set -e
+if [ -z "$1" ]; then
     SDK_NAME="automationhub/smartag-sdk"
 fi
 # Check parameters (only service)
@@ -18,4 +13,6 @@ fi
 docker build \
     -t $SDK_NAME \
     .
+
+# Publish SDK in your registry
 #docker push automationhub/smartag-sdk:latest

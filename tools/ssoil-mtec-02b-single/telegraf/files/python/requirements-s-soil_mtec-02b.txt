@@ -1,2 +1,0 @@
-Adafruit_Python_DHT==1.4.0
-minimalmodbus==2.0.1

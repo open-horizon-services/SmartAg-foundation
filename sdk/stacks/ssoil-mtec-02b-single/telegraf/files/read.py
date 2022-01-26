@@ -14,7 +14,7 @@ def main():
         vwc = instrument.read_register(1,2)
         # salinity = instrument.read_register(3,2)
         tds = instrument.read_register(4,2)
-      
+
         print("mtec-02b,tag=a temp={},vwc={},tds={}".format(temperature, vwc, tds))
         # print("mtec-02b,tag=a temp={},vwc={},salinity={},tds={}".format(temperature, vwc, salinity, tds))
 if __name__ == "__main__":

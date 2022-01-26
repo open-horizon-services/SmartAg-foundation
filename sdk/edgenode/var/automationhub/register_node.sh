@@ -7,7 +7,5 @@
 # Remove previous registration
 hzn unregister -Df
 
-#hzn exchange version
-
 # Register new node
 hzn register --policy /var/automationhub/edgenode_capabilities.json

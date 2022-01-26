@@ -1,24 +1,6 @@
 #!/bin/sh
 set -e
 
-# usage() {
-#     exitCode=${1:-0}
-#     cat << EOM
-# Usage: ${0##*/} edge_server_ip
-
-# Parameters:
-#     edge_server_ip  Edge server IP address
-
-# EOM
-#     exit $exitCode
-# }
-
-# if [ -z $1 ]; then
-#     echo "ERROR: edge_server_ip is not specified"
-#     usage 1
-# fi
-
-# export SMARTAG_EDGESERVER_IP=$1
 eval export $(get_deployment_env host.docker.internal)
 
 ATTEMPTS=5
@@ -31,6 +13,6 @@ do
    n=$((n+1)) 
    sleep 3
 done
-echi "ERROR: horizon exchange service is not available"
+echi "ERROR: horizon exchange service doesn't bocome available after $(($ATTEMPTS*$DELAY)) seconds"
 
 exit 1

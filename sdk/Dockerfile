@@ -30,7 +30,7 @@ ENV AGBOT_TOKEN=$AGBOT_TOKEN
 ENV EXCHANGE_USER_ADMIN_PW=$EXCHANGE_USER_ADMIN_PW
 ENV HZN_DEVICE_TOKEN=$HZN_DEVICE_TOKEN
 
-RUN apk update && apk add gettext moreutils zip openssh-keygen docker openssl jq
+RUN apk update && apk add gettext moreutils zip openssh-keygen docker openssl jq util-linux
 RUN /usr/local/bin/python -m pip install --upgrade pip
 RUN pip install gdown
 

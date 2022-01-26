@@ -101,13 +101,14 @@ if ((${#PASSPHRASE} < 8 || ${#PASSPHRASE} > 63)); then
 fi
 
 # BUGBUG: Device mapping with container is not supported in MacOS Docker 
-#(https://github.com/docker/for-mac/issues/3110#issuecomment-456853036)
+# (https://github.com/docker/for-mac/issues/3110#issuecomment-456853036)
 # So we cannot hide dd in MacOS, np - perform dd at the end
 # For Linux we could map target device and hide low level device access
 
 docker run \
     --rm \
     --privileged \
+    -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$PWD:$PWD" \
     -w $PWD \
     -it automationhub/smartag-sdk \

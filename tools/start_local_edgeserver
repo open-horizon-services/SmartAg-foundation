@@ -43,15 +43,7 @@ EOM
     exit $exitCode
 }
 
-function run_sdk {
-  docker run \
-        --rm \
-        -v "/tmp/automationhub:/tmp/automationhub" \
-        -v "$PWD:$PWD" \
-        -w $PWD \
-        automationhub/smartag-sdk \
-        /bin/$@
-};
+. $PWD/support/functions
 
 function restore_volume {
     docker run \
@@ -125,25 +117,20 @@ for VOLUME in automationhub_mongo automationhub_postgres automationhub_ocsdb aut
     #     INUSE=$(docker volume rm $VOLUME 2>&1 | awk -F'[][]' '{print $2}')
     # fi
     if [ ! -z "$RECONFIGURE" ]; then
-        docker volume ls | grep $VOLUME &>/dev/null && docker volume rm $VOLUME
+        docker volume ls | grep $VOLUME >/dev/null && docker volume rm $VOLUME >/dev/null
     fi
 
     # TODO: it's test, remove below 
-    if ! docker volume ls | grep $VOLUME; then
-        docker volume create $VOLUME
+    if ! docker volume ls | grep $VOLUME >/dev/null; then
+        docker volume create $VOLUME >/dev/null
         echo "Restoring volume $VOLUME..."
-        # docker run \
-        #     --rm \
-        #     -v $VOLUME:/out \
-        #     automationhub/smartag-sdk \
-        #     /bin/restore_volume $VOLUME
-        restore_volume $VOLUME
+        restore_volume $VOLUME >/dev/null
     fi
 done 
 
 # Create shared network
-if ! docker network ls | grep "automationhub_network"; then
-    docker network create automationhub_network
+if ! docker network ls | grep "automationhub_network" >/dev/null; then
+    docker network create automationhub_network >/dev/null
 fi
 
 if [ ! -f ./edge_nodes ]; then
@@ -151,30 +138,25 @@ if [ ! -f ./edge_nodes ]; then
     exit 1
 fi
 
-EDGE_SERVER_VARS=$(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
-eval $EDGE_SERVER_VARS
+eval $(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
 
+# Get latest docker-compose file to use for Edge Server
 # docker-compose file is saved to /tmp/automationhub/docker-compose.yml
 run_sdk gen_docker_compose
 
 # Before registering nodes we need to start EdgeServer
-# docker run \
-#     --rm \
-#     -v /var/run/docker.sock:/var/run/docker.sock \
-#     -v "/tmp/automationhub:/tmp/automationhub" \
-#     -v "$PWD:$PWD" \
-#     -w="$PWD" \
-#     docker/compose:1.28.0 -f /tmp/automationhub/docker-compose.yml up -d
-
 docker run \
     --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "/tmp/automationhub:/tmp/automationhub" \
     -v "$PWD:$PWD" \
     -w="$PWD" \
-    docker/compose:1.28.0 up -d
+    docker/compose:1.28.0 -f /tmp/automationhub/docker-compose.yml up -d &>/dev/null
 
 echo "Wait for Edge Server is initialized..."
+
+# Check if Edge Server is up and running
+# TODO: check if all critical services are running
 run_sdk wait_edgeserver_ready
 
 echo "Purge all business deployments from Edge Server..."
@@ -184,7 +166,7 @@ echo "Purge all Edge Nodes registrations from Edge Server..."
 run_sdk purge_all_nodes
 
 echo "Looking for development boards in local network..."
-# RPi4 - "dc:a6:32" prefix
+# RPi4 - "dc:a6:32" MAC address prefix
 
 # TODO: Add support for other boards
 netstat -nr | grep dc:a6:32 | cut -d' ' -f1 | while read IP; do
@@ -219,35 +201,40 @@ HZNDEFAULT
   "insecure-registries" : ["$SMARTAG_EDGESERVER_IP:5000"]
 }
 NODEDOCKER
-# echo "1"
-            scp -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key /tmp/node_docker_daemon pi@$IP:/tmp/daemon.json >/dev/null
-# echo "2"
-            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo cp /tmp/daemon.json /etc/docker/daemon.json" >/dev/null
-# echo "3"
-            scp -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key ./registry/certs/domain.crt pi@$IP:/tmp/ca.crt >/dev/null
-# echo "4"
-            ssh -i ./node_keys/$NODE_NAME.key pi@$IP "sudo mkdir -p /etc/docker/certs.d/$SMARTAG_EDGESERVER_IP:5000 && sudo cp /tmp/ca.crt /etc/docker/certs.d/$SMARTAG_EDGESERVER_IP:5000/ca.crt"
-# echo "5"
-            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo docker login -uadmin -ppassword $SMARTAG_EDGESERVER_IP:5000" &>/dev/null
-# echo "6"
-            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo systemctl restart docker" >/dev/null
-# echo "7"
-            scp -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key /tmp/horizon_default pi@$IP:/tmp/horizon_default >/dev/null
-# echo "8"
-            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo cp /tmp/horizon_default /etc/default/horizon" >/dev/null
-# echo "9"
-            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo $EDGE_NODE_VARS sh -c 'hzn unregister -rDf'" >/dev/null
-# echo "10"
-            ssh -o IdentitiesOnly=yes -i ./node_keys/$NODE_NAME.key pi@$IP "sudo $EDGE_NODE_VARS sh -c 'hzn register --policy /var/automationhub/edgenode_capabilities.json'" >/dev/null
+        # TODO: for SDO all this should be replaced
+
+        scp -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key /tmp/node_docker_daemon pi@$IP:/tmp/daemon.json >/dev/null
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo cp /tmp/daemon.json /etc/docker/daemon.json" >/dev/null
+
+        scp -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key ./registry/certs/domain.crt pi@$IP:/tmp/ca.crt >/dev/null
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo mkdir -p /etc/docker/certs.d/$SMARTAG_EDGESERVER_IP:5000 && sudo cp /tmp/ca.crt /etc/docker/certs.d/$SMARTAG_EDGESERVER_IP:5000/ca.crt"
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo docker login -uadmin -ppassword $SMARTAG_EDGESERVER_IP:5000" &>/dev/null
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo systemctl restart docker" >/dev/null
+
+        scp -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key /tmp/horizon_default pi@$IP:/tmp/horizon_default >/dev/null
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo cp /tmp/horizon_default /etc/default/horizon" >/dev/null
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo $EDGE_NODE_VARS sh -c 'hzn unregister -rDf'" >/dev/null
+
+        ssh -o IdentitiesOnly=yes \
+            -i ./node_keys/$NODE_NAME.key pi@$IP "sudo $EDGE_NODE_VARS sh -c 'hzn register --policy /var/automationhub/edgenode_capabilities.json'" >/dev/null
             echo "Edge Node '$NODE_NAME' is configured"
             echo 
         fi
-        
-        # Check if first time connected
-        #CONNECTED_NODE=$(ssh -i ./node_keys/$NODE_NAME.key pi@$IP "cat /var/uname -n");
-        # Re-register node with new name and capabilities
-        # Setup exchange IP i.e. SMARTAG_EDGESERVER_IP
-        # Setup variables
     done;
 done;
 

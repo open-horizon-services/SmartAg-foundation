@@ -1,5 +1,5 @@
 #!/bin/sh
-#!/usr/bin/env bash
+#
 set -e
 
 usage() {
@@ -21,4 +21,8 @@ fi
 
 eval export $(get_deployment_env host.docker.internal)
 
-hzn exchange node listerrors myorg/example-edge-node
+D=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)
+[ -z "$1" ] && ($D/list_nodes;echo -e "\nSpecify a node name"; exit 1)
+
+# echo "Available deployments for '$1' node in '$HZN_ORG_ID' organization:"
+hzn exchange node listpolicy $1 | jq -r '.properties[]|[.name,.value]|@tsv' | column -t

@@ -16,19 +16,19 @@ EOM
     exit $exitCode
 }
 
-if [ -z $1 ]; then
+if [ -z "$1" ]; then
     echo "ERROR: edge_server_ip is not specified"
     usage 1
 fi
 export SMARTAG_EDGESERVER_IP=$1
 
-if [ -z $2 ]; then
+if [ -z "$2" ]; then
     echo "ERROR: edge_node_ip is not specified"
     usage 1
 fi
 export SMARTAG_EDGENODE_IP=$2
 
-if [ -z $3 ]; then
+if [ -z "$3" ]; then
     echo "ERROR: save_directory is not specified"
     usage 1
 fi
@@ -43,7 +43,3 @@ openssl req -new -nodes -x509 -days 365 -keyout $OUT_DIR/domain.key -out $OUT_DI
 # Verify certificate
 echo "verifying..."
 openssl x509 -in $OUT_DIR/domain.crt -noout -text | grep "IP Address:$SMARTAG_EDGESERVER_IP"
-
-# Copy newly generated files in directory which is mapped docker volume
-# mv domain.key $OUT_DIR
-# mv domain.crt $OUT_DIR

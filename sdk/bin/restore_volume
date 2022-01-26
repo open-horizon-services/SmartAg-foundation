@@ -22,5 +22,4 @@ if [ ! -f /var/automationhub/volumes/$1.tgz ]; then
     exit 1
 fi
 
-# tar -xf /var/automationhub/volumes/$1.tgz --strip-components=2 -C /out
 tar x -zf /var/automationhub/volumes/$1.tgz --strip-components=1 -C /out

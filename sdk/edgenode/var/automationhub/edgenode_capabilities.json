@@ -1,36 +1,28 @@
 {
   "properties": [
     {
-      "name": "zone_id",
+      "name": "zone",
       "value": "zone1"
     },
     {
-      "name": "env",
+      "name": "environment",
       "value": "testlab"
     },
     {
-      "name": "ram_gb",
-      "value": 4
-    },
+      "name": "edge_node",
+      "value": "$SMARTAG_EDGENODE_HOST"
+    },    
     {
       "name": "headless",
       "value": true
-    },
-    {
-      "name": "disk_storage_gb",
-      "value": 32
     },
     {
       "name": "board_name",
       "value": "raspberry_pi4_b"
     },
     {
-      "name": "edge_node",
-      "value": "$SMARTAG_EDGENODE_HOST"
-    },
-    {
       "name": "sensor_1",
-      "value": "S-Temp&VWC&EC-02B"
+      "value": "Seeed // S-Soil MTEC-02B"
     }
   ],
   "constraints": []

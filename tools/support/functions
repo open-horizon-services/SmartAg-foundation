@@ -1,0 +1,9 @@
+function run_sdk {
+  docker run \
+        --rm \
+        -v "/tmp/automationhub:/tmp/automationhub" \
+        -v "$PWD:$PWD" \
+        -w $PWD \
+        automationhub/smartag-sdk \
+        /bin/$@
+};

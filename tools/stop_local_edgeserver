@@ -2,29 +2,16 @@
 #!/usr/bin/env bash
 set -e
 
-function run_sdk {
-  docker run \
-        --rm \
-        -v "/tmp/automationhub:/tmp/automationhub" \
-        -v "$PWD:$PWD" \
-        -w $PWD \
-        automationhub/smartag-sdk \
-        /bin/$@
-};
-
+. $PWD/support/functions
 SMARTAG_EDGESERVER_IP=$(ifconfig | grep "inet " | grep -Fv 127.0.0.1 | awk '{print $2}')
 
-EDGE_SERVER_VARS=$(docker run \
-    --rm \
-    --privileged \
-    -v "/var/run/docker.sock:/var/run/docker.sock" \
-    -v "$PWD:$PWD" \
-    -w $PWD \
-    automationhub/smartag-sdk \
-    /bin/get_server_env $SMARTAG_EDGESERVER_IP)
-eval $EDGE_SERVER_VARS
+eval $(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
 
+# Get latest docker-compose file to use for Edge Server
+# docker-compose file is saved to /tmp/automationhub/docker-compose.yml
 run_sdk gen_docker_compose
+
+# Stop Edge Server
 docker run \
     --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
@@ -32,14 +19,3 @@ docker run \
     -v "/tmp/automationhub:/tmp/automationhub" \
     -w="$PWD" \
     -it docker/compose:1.28.0 -f /tmp/automationhub/docker-compose.yml down
-
-# Before registering nodes we need to start EdgeServer
-docker run \
-    --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "/tmp/automationhub:/tmp/automationhub" \
-    -v "$PWD:$PWD" \
-    -w="$PWD" \
-    docker/compose:1.28.0 -f /tmp/automationhub/docker-compose.yml up -d
-
-

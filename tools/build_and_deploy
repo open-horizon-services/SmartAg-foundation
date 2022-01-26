@@ -54,16 +54,17 @@ export ARCH="arm"
 echo "Using version '$STACK_VERSION' for '$STACK_NAME' stack"
 
 # Get Node variables
-DEPLOYMENT_VARS=$(docker run \
-    --rm \
-    --privileged \
-    -v "/var/run/docker.sock:/var/run/docker.sock" \
-    -v "$PWD:$PWD" \
-    -w $PWD \
-    automationhub/smartag-sdk \
-    /bin/get_deployment_env $SMARTAG_EDGESERVER_IP)
-# echo -e "DEPLOYMENT_VARS:\n$DEPLOYMENT_VARS"
-eval export $DEPLOYMENT_VARS
+# DEPLOYMENT_VARS=$(docker run \
+#     --rm \
+#     --privileged \
+#     -v "/var/run/docker.sock:/var/run/docker.sock" \
+#     -v "$PWD:$PWD" \
+#     -w $PWD \
+#     automationhub/smartag-sdk \
+#     /bin/get_deployment_env $SMARTAG_EDGESERVER_IP)
+# # echo -e "DEPLOYMENT_VARS:\n$DEPLOYMENT_VARS"
+# eval export $DEPLOYMENT_VARS
+eval $(run_sdk get_deployment_env $SMARTAG_EDGESERVER_IP)
 
 # Check if EdgeServer registry is running
 if ! test $(curl -sS -w %{http_code} -k -o /dev/null \

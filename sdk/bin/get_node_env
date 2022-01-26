@@ -12,7 +12,7 @@ EOM
     exit $exitCode
 }
 
-if [ -z $1 ]; then
+if [ -z "$1" ]; then
     echo "ERROR: edge_server_ip is not specified"
     usage 1
 fi

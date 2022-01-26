@@ -30,7 +30,7 @@ Available stacks to create:
     This stack includes open source telegraf service and custom python plugin to read sensor data from 
     /dev/USBx connected to USB<->RS485 converter connected to S-Soil MTEC-02B sensor.
     All sensor data are published into open source InfluxDB and displayed on open source Grafana dashboard.
-    Check documentation - https://wiki.lfedge.org/display/OH/Milestone+3%3A+Automation+hub+ecosystem
+    Check documentation - https://wiki.lfedge.org/display/OH/Milestone+3%3A+Containerised+IoT+Edge+Ecosystem
 
     To use it, create stack, insert sensor into USB on RPi4 and deploy stack with ./build_and_deploy!
 

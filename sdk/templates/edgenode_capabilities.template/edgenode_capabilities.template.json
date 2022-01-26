@@ -1,11 +1,11 @@
 {
   "properties": [
     {
-      "name": "zone_id",
+      "name": "zone",
       "value": "zone1"
     },
     {
-      "name": "env",
+      "name": "environment",
       "value": "testlab"
     },
     {

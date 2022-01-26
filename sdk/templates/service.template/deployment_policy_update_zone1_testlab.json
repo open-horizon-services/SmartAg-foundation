@@ -1,8 +1,8 @@
 {
   "properties": [ ],
   "constraints": [
-    "zone_id == \"zone1\"",
-    "env == \"testlab\""
+    "zone == \"zone1\"",
+    "environment == \"testlab\""
   ],
   "service": {
     "org": "$HZN_ORG_ID",

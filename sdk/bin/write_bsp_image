@@ -24,7 +24,7 @@ set -e
 
 usage() {
     exitCode=${1:-0}
-    cat << EOM
+    cat <<EOM
 Usage: ${0##*/} node_name ssid passphrase
 
 Parameters:
@@ -83,8 +83,15 @@ export SMARTAG_COUNTRY=$5
 
 # TODO: decrease initial file size to 10-15mb
 IMG=target_os.img
+HEADERCOLS=$(fdisk -l ./$IMG | grep "Device" | wc -w)
+FDISKHEADER=$(fdisk -l ./$IMG | grep "Device" | tr -s ' ')
+if [[ "$FDISKHEADER" != "Device Boot Start End Sectors Size Id Type" ]]; then
+    echo "ERROR: Unexpected fdisk -l header format, expecting columns: Device Boot Start End Sectors Size Id Type"
+    exit 1
+fi
+
 SECTOR_SIZE=$(fdisk -l ./$IMG | grep 'Units:' | grep -o -E '\d+ bytes' | grep -o -E '\d+')
-STARTBLOCK=$(fdisk -l ./$IMG | grep "FAT32" | tr -s ' ' | cut -d' ' -f4)
+STARTBLOCK=$(fdisk -l ./$IMG | grep "FAT32" | tr -s ' ' | cut -d' ' -f2)
 
 # Mount boot partition into /osimg and put 
 # - needed patch files
@@ -130,7 +137,7 @@ cp ./node_keys/$SMARTAG_EDGENODE_HOST.key.pub /tmp/edgenode/home/pi/.ssh/id_rsa.
 cat ./node_keys/$SMARTAG_EDGENODE_HOST.key.pub >/tmp/edgenode/home/pi/.ssh/authorized_keys
 
 # Patch/overwrite all files with environment variables values
-find /tmp/edgenode/ -type f -exec sh -c "envsubst < {} | sponge {}" \;
+find /tmp/edgenode/ -type f -exec sh -c "envsubst<{} | sponge {}" \;
 
 # Remove old archive if any
 rm -rf /osimg/ospatch.zip
