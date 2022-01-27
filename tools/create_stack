@@ -20,8 +20,6 @@ EOM
 }
 
 if [ -z "$1" ]; then
-    # No parameters specified, list available stacks to start from
-    # xargs echo -ne | cat <<STACKS
     printf "
 Available stacks to create:
 
@@ -40,6 +38,7 @@ Available stacks to create:
     ${IW}Try it, it's free and open source!${NC}
 
 "
+    exit 1
 fi
 
 docker run \

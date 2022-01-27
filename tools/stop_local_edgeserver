@@ -5,7 +5,7 @@ set -e
 . $PWD/support/functions
 SMARTAG_EDGESERVER_IP=$(ifconfig | grep "inet " | grep -Fv 127.0.0.1 | awk '{print $2}')
 
-eval $(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
+eval export $(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
 
 # Get latest docker-compose file to use for Edge Server
 # docker-compose file is saved to /tmp/automationhub/docker-compose.yml

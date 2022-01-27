@@ -44,6 +44,8 @@ if [ -z "$2" ]; then
 fi
 export SMARTAG_EDGENODE_HOST=$2
 
+. $PWD/support/functions
+
 # Print current build version
 export STACK_NAME="$1"
 export STACK_VERSION=$(cat $STACK_NAME/VERSION)
@@ -64,7 +66,7 @@ echo "Using version '$STACK_VERSION' for '$STACK_NAME' stack"
 #     /bin/get_deployment_env $SMARTAG_EDGESERVER_IP)
 # # echo -e "DEPLOYMENT_VARS:\n$DEPLOYMENT_VARS"
 # eval export $DEPLOYMENT_VARS
-eval $(run_sdk get_deployment_env $SMARTAG_EDGESERVER_IP)
+eval export $(run_sdk get_deployment_env $SMARTAG_EDGESERVER_IP)
 
 # Check if EdgeServer registry is running
 if ! test $(curl -sS -w %{http_code} -k -o /dev/null \

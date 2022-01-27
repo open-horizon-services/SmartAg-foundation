@@ -138,7 +138,7 @@ if [ ! -f ./edge_nodes ]; then
     exit 1
 fi
 
-eval $(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
+eval export $(run_sdk get_server_env $SMARTAG_EDGESERVER_IP)
 
 # Get latest docker-compose file to use for Edge Server
 # docker-compose file is saved to /tmp/automationhub/docker-compose.yml
