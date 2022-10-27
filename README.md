@@ -3,7 +3,7 @@ SmartAg is an open-source platform...
 Data driven agriculture
 
 # Overview
-![](https://img.shields.io/github/license/julianchen215/SmartAg-foundation)
+![](https://img.shields.io/github/license/open-horizon-services/SmartAg-foundation)
 ![](https://img.shields.io/badge/architecture-arm%2C%20arm64-green)
 ![](https://img.shields.io/github/contributors/open-horizon-services/SmartAg-foundation)
 
